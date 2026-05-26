@@ -43,10 +43,12 @@ class SaQciObservationItem {
 /// Parses the [Data.toJson()] structure returned by the ShellQciForm API
 /// and stored in Hive via SaQciAllFormsService.
 class SaQciFormUiModel {
+  final String shortCode;
   final Map<String, List<SaQciObservationItem>> visualByModule;
   final Map<String, List<SaQciObservationItem>> dimensionalByModule;
 
   const SaQciFormUiModel({
+    this.shortCode = '',
     required this.visualByModule,
     required this.dimensionalByModule,
   });
@@ -55,6 +57,7 @@ class SaQciFormUiModel {
   ///   { "short_code": "...", "uf_visual_obs": [...], "uf_dimesional_obs": [...], ... }
   factory SaQciFormUiModel.fromJson(Map<String, dynamic> json) {
     return SaQciFormUiModel(
+      shortCode: (json['short_code'] ?? '').toString(),
       visualByModule: {
         'uf':    _parseVisual(json['uf_visual_obs'],    'uf'),
         'sw':    _parseVisual(json['sw_visual_obs'],    'sw'),
