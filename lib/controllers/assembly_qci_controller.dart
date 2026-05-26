@@ -16,6 +16,7 @@ import '../../data/db/features/shared/services/all_shifts_service.dart';
 import '../../data/db/features/shell_assembly/models/sa_all_metal_types.dart';
 import '../../data/db/features/shell_assembly/models/sat_shell_no.dart';
 import '../../data/db/features/shell_assembly/services/sa_all_metal_types_service.dart';
+import '../../data/db/features/shell_assembly/services/sa_qci_all_form_service.dart';
 import '../../data/db/features/shell_assembly/services/sa_qci_form_param_service.dart';
 import '../../data/db/features/shell_assembly/services/sa_qci_form_payload_service.dart';
 import '../../data/db/features/shell_assembly/services/sat_shell_no_service.dart';
@@ -29,12 +30,15 @@ import '../../utils/app_utility.dart';
 class AssemblyQciController extends GetxController {
   static AssemblyQciController to = Get.find();
 
-  final allFrameTypesService = Get.find<AllFrameTypesService>();
-  final saAllMetalTypesService = Get.find<SaAllMetalTypesService>();
-  final allMakesService = Get.find<AllMakesService>();
-  final allShiftsService = Get.find<AllShiftsService>();
-  final satShellNoService = Get.find<SatShellNoService>();
-  final _qciFormParamService = Get.find<SaQciFormParamService>();
+  final allFrameTypesService    = Get.find<AllFrameTypesService>();
+  final saAllMetalTypesService  = Get.find<SaAllMetalTypesService>();
+  final allMakesService         = Get.find<AllMakesService>();
+  final allShiftsService        = Get.find<AllShiftsService>();
+  final satShellNoService       = Get.find<SatShellNoService>();
+  // Primary source: 23 forms pre-loaded by dashboard on startup
+  final _qciAllFormsService     = Get.find<SaQciAllFormsService>();
+  // Secondary source: per-frame fetch when user selects shell type online
+  final _qciFormParamService    = Get.find<SaQciFormParamService>();
 
   final shellAssemblyQciFormKey = GlobalKey<FormState>();
   final qciInspectionDateCtrl = TextEditingController(text: 'SELECT DATE');
@@ -541,67 +545,66 @@ class AssemblyQciController extends GetxController {
 
   // ── QCI form hydration from Hive / bundled asset ──────────────────────────
 
-  /// Priority: (1) Hive cache for [frameTypeId]  (2) bundled asset JSON.
+  /// Load order:
+  ///   1. SaQciAllFormsService  — pre-populated by dashboard on app startup (23 forms)
+  ///   2. SaQciFormParamService — per-frame fetch saved when user selected shell type online
   Future<void> loadQciFormFromHive({required String frameTypeId}) async {
     if (kDebugMode) {
-      debugPrint('[QCI] loadQciFormFromHive called for frameTypeId: "$frameTypeId"');
+      debugPrint('[QCI] loadQciFormFromHive: frameTypeId="$frameTypeId"');
     }
 
-    final cached = _qciFormParamService.getRawJson(frameTypeId: frameTypeId);
+    // ── Source 1: SaQciAllFormsService (dashboard pre-load) ─────────────────
+    final allFormsCached = _qciAllFormsService.getFormByFrameTypeId(frameTypeId);
 
     if (kDebugMode) {
-      debugPrint('[QCI] getRawJson result: ${cached == null ? "NULL" : "found (${cached.length} chars)"}');
+      debugPrint('[QCI] SaQciAllFormsService.getFormByFrameTypeId → '
+          '${allFormsCached == null ? "NULL" : "found, data keys: ${allFormsCached.data.keys.toList()}"}');
     }
 
-    if (cached != null && cached.isNotEmpty) {
+    if (allFormsCached != null && allFormsCached.data.isNotEmpty) {
       try {
-        final decoded = jsonDecode(cached);
+        qciForm = SaQciFormUiModel.fromJson(allFormsCached.data);
         if (kDebugMode) {
-          debugPrint('[QCI] decoded type: ${decoded.runtimeType}');
-          if (decoded is Map) {
-            debugPrint('[QCI] decoded keys: ${decoded.keys.toList()}');
-          }
+          debugPrint('[QCI] ✅ qciForm loaded from SaQciAllFormsService. '
+              'vis modules: ${qciForm?.visualByModule.keys.toList()} '
+              'dim modules: ${qciForm?.dimensionalByModule.keys.toList()}');
         }
+        update();
+        return;
+      } catch (e, stack) {
+        if (kDebugMode) {
+          debugPrint('[QCI] ❌ SaQciFormUiModel.fromJson error: $e\n$stack');
+        }
+      }
+    }
+
+    // ── Source 2: SaQciFormParamService (per-frame API fetch) ────────────────
+    final rawJson = _qciFormParamService.getRawJson(frameTypeId: frameTypeId);
+
+    if (kDebugMode) {
+      debugPrint('[QCI] SaQciFormParamService.getRawJson → '
+          '${rawJson == null ? "NULL" : "found (${rawJson.length} chars)"}');
+    }
+
+    if (rawJson != null && rawJson.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawJson);
         if (decoded is Map<String, dynamic>) {
           qciForm = SaQciFormUiModel.fromJson(decoded);
-          if (kDebugMode) {
-            debugPrint('[QCI] qciForm loaded! '
-                'dimensionalByModule keys: ${qciForm?.dimensionalByModule.keys.toList()} '
-                'visualByModule keys: ${qciForm?.visualByModule.keys.toList()}');
-          }
+          if (kDebugMode) debugPrint('[QCI] ✅ qciForm loaded from SaQciFormParamService');
           update();
           return;
-        } else {
-          if (kDebugMode) debugPrint('[QCI] ERROR: decoded is not Map<String,dynamic>');
         }
       } catch (e, stack) {
         if (kDebugMode) {
-          debugPrint('[QCI] ERROR in SaQciFormUiModel.fromJson: $e');
-          debugPrint('[QCI] Stack: $stack');
+          debugPrint('[QCI] ❌ SaQciFormParamService fromJson error: $e\n$stack');
         }
       }
     }
 
-    if (kDebugMode) debugPrint('[QCI] Falling back to bundled asset...');
-
-    // Hive empty or corrupt → fall back to bundled asset
-    try {
-      final raw = await rootBundle.loadString('assets/json/sa_qci_form.json');
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map<String, dynamic>) {
-        if (kDebugMode) debugPrint('[QCI] Asset JSON is not a Map — giving up');
-        qciForm = null;
-        update();
-        return;
-      }
-      qciForm = SaQciFormUiModel.fromJson(decoded);
-      if (kDebugMode) debugPrint('[QCI] Loaded from bundled asset OK');
-      update();
-    } catch (e) {
-      if (kDebugMode) debugPrint('[QCI] Asset fallback error: $e');
-      qciForm = null;
-      update();
-    }
+    if (kDebugMode) debugPrint('[QCI] ❌ No cached data found — qciForm = null');
+    qciForm = null;
+    update();
   }
 
   // ── Form-type (module) selection ──────────────────────────────────────────
