@@ -580,8 +580,9 @@ class AssemblyQciController extends GetxController {
 
     if (cached != null && cached.data.isNotEmpty) {
       try {
-        // cached.data is Map<String,dynamic> — pass directly, no jsonDecode needed
-        qciForm = SaQciFormUiModel.fromJson(cached.data);
+        // Senior's SaQciFormUiModel.fromJson expects { 'data': { short_code, ... } }
+        // cached.data IS the inner map, so we must wrap it with the 'data' key.
+        qciForm = SaQciFormUiModel.fromJson({'data': cached.data});
         if (kDebugMode) {
           debugPrint('[QCI] ✅ qciForm loaded  shortCode="${qciForm?.shortCode}"  '
               'vis=${qciForm?.visualByModule.keys.toList()}  '
