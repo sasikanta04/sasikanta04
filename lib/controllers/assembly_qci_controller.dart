@@ -456,13 +456,26 @@ class AssemblyQciController extends GetxController {
     update();
 
     final isOnline = await AppUtility.checkNetworkConn();
+    final isCached = _qciFormParamService.hasCached(frameTypeId: frameTypeId);
 
-    if (isOnline && !_qciFormParamService.hasCached(frameTypeId: frameTypeId)) {
+    if (kDebugMode) {
+      debugPrint('[QCI] _loadAllFormsForFrameType: frameTypeId="$frameTypeId" '
+          'isOnline=$isOnline isCached=$isCached');
+    }
+
+    if (isOnline && !isCached) {
+      if (kDebugMode) debugPrint('[QCI] Fetching from API...');
       // Fetch fresh params from API (saves to Hive inside the method)
       await getFinalInspectionAllParams(
         frameTypeId: frameTypeId,
-        onComplete: (_) async {},
+        onComplete: (ok) async {
+          if (kDebugMode) debugPrint('[QCI] getFinalInspectionAllParams completed: $ok');
+        },
       );
+    } else if (!isOnline && !isCached) {
+      if (kDebugMode) debugPrint('[QCI] OFFLINE and NOT cached — form will be null unless asset exists');
+    } else if (isCached) {
+      if (kDebugMode) debugPrint('[QCI] Using cached data from Hive');
     }
 
     // After fetch (or if already cached / offline), hydrate both forms from Hive
@@ -530,26 +543,62 @@ class AssemblyQciController extends GetxController {
 
   /// Priority: (1) Hive cache for [frameTypeId]  (2) bundled asset JSON.
   Future<void> loadQciFormFromHive({required String frameTypeId}) async {
+    if (kDebugMode) {
+      debugPrint('[QCI] loadQciFormFromHive called for frameTypeId: "$frameTypeId"');
+    }
+
     final cached = _qciFormParamService.getRawJson(frameTypeId: frameTypeId);
+
+    if (kDebugMode) {
+      debugPrint('[QCI] getRawJson result: ${cached == null ? "NULL" : "found (${cached.length} chars)"}');
+    }
+
     if (cached != null && cached.isNotEmpty) {
       try {
         final decoded = jsonDecode(cached);
+        if (kDebugMode) {
+          debugPrint('[QCI] decoded type: ${decoded.runtimeType}');
+          if (decoded is Map) {
+            debugPrint('[QCI] decoded keys: ${decoded.keys.toList()}');
+          }
+        }
         if (decoded is Map<String, dynamic>) {
           qciForm = SaQciFormUiModel.fromJson(decoded);
+          if (kDebugMode) {
+            debugPrint('[QCI] qciForm loaded! '
+                'dimensionalByModule keys: ${qciForm?.dimensionalByModule.keys.toList()} '
+                'visualByModule keys: ${qciForm?.visualByModule.keys.toList()}');
+          }
           update();
           return;
+        } else {
+          if (kDebugMode) debugPrint('[QCI] ERROR: decoded is not Map<String,dynamic>');
         }
-      } catch (_) {}
+      } catch (e, stack) {
+        if (kDebugMode) {
+          debugPrint('[QCI] ERROR in SaQciFormUiModel.fromJson: $e');
+          debugPrint('[QCI] Stack: $stack');
+        }
+      }
     }
+
+    if (kDebugMode) debugPrint('[QCI] Falling back to bundled asset...');
 
     // Hive empty or corrupt → fall back to bundled asset
     try {
       final raw = await rootBundle.loadString('assets/json/sa_qci_form.json');
       final decoded = jsonDecode(raw);
-      if (decoded is! Map<String, dynamic>) return;
+      if (decoded is! Map<String, dynamic>) {
+        if (kDebugMode) debugPrint('[QCI] Asset JSON is not a Map — giving up');
+        qciForm = null;
+        update();
+        return;
+      }
       qciForm = SaQciFormUiModel.fromJson(decoded);
+      if (kDebugMode) debugPrint('[QCI] Loaded from bundled asset OK');
       update();
-    } catch (_) {
+    } catch (e) {
+      if (kDebugMode) debugPrint('[QCI] Asset fallback error: $e');
       qciForm = null;
       update();
     }
