@@ -10,8 +10,7 @@ import 'package:get/get.dart';
 
 import '../../data/api/shell/sa_final_saved_list_response.dart';
 import '../../data/api/shell/shell_no_response.dart';
-// shell_qci_form.dart is the senior's API model — kept for reference / future use
-// import '../../data/api/shell/shell_qci_form.dart';
+import '../../data/api/shell/shell_qci_form.dart'; // API response model
 import '../../data/db/features/shared/services/all_frame_types_service.dart';
 import '../../data/db/features/shared/services/all_makes_service.dart';
 import '../../data/db/features/shared/services/all_shifts_service.dart';
@@ -484,8 +483,12 @@ class AssemblyQciController extends GetxController {
           return;
         }
         try {
-          final List rawList = result.data;
-          if (rawList.isEmpty) {
+          // Parse full API response using ShellQciForm model
+          final response = ShellQciForm.fromJson(
+            Map<String, dynamic>.from(result.toJson()),
+          );
+
+          if (response.data.isEmpty) {
             await onComplete(false);
             return;
           }
@@ -493,10 +496,16 @@ class AssemblyQciController extends GetxController {
           await _qciFormParamService.clearAll();
 
           final allForms = <SaQciObsForms>[];
-          for (var i = 0; i < rawList.length; i++) {
-            if (rawList[i] is! Map) continue;
-            final map = Map<String, dynamic>.from(rawList[i]);
-            allForms.add(SaQciObsForms.fromJson(map));
+          for (var i = 0; i < response.data.length; i++) {
+            final datum = response.data[i];
+            if (datum.data == null) continue;
+
+            // Store datum.data as raw Map so SaQciFormUiModel.fromJson can read it
+            allForms.add(SaQciObsForms(
+              frameTypeId: datum.frameTypeId,
+              data: datum.data!.toJson(),
+            ));
+
             if (i % 50 == 0) await Future<void>.delayed(Duration.zero);
           }
 
