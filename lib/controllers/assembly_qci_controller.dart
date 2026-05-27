@@ -11,9 +11,12 @@ import 'package:get/get.dart';
 import '../../data/api/shell/sa_final_saved_list_response.dart';
 import '../../data/api/shell/shell_no_response.dart';
 import '../../data/api/shell/shell_qci_form.dart'; // API response model
+import '../../data/api/shell/shell_no_by_shell_type_response.dart';
+import '../../data/db/features/shared/models/sa_shell_no_item.dart';
 import '../../data/db/features/shared/services/all_frame_types_service.dart';
 import '../../data/db/features/shared/services/all_makes_service.dart';
 import '../../data/db/features/shared/services/all_shifts_service.dart';
+import '../../data/db/features/shared/services/sa_shell_type_shell_no_service.dart';
 import '../../data/db/features/shell_assembly/models/sa_all_metal_types.dart';
 import '../../data/db/features/shell_assembly/models/sa_qci_form_param.dart';
 import '../../data/db/features/shell_assembly/models/sat_shell_no.dart';
@@ -31,11 +34,14 @@ import '../../utils/app_utility.dart';
 class AssemblyQciController extends GetxController {
   static AssemblyQciController to = Get.find();
 
-  final allFrameTypesService       = Get.find<AllFrameTypesService>();
-  final saAllMetalTypesService     = Get.find<SaAllMetalTypesService>();
-  final allMakesService            = Get.find<AllMakesService>();
-  final allShiftsService           = Get.find<AllShiftsService>();
-  final satShellNoService          = Get.find<SatShellNoService>();
+  final allFrameTypesService           = Get.find<AllFrameTypesService>();
+  final saAllMetalTypesService         = Get.find<SaAllMetalTypesService>();
+  final allMakesService                = Get.find<AllMakesService>();
+  final allShiftsService               = Get.find<AllShiftsService>();
+  final satShellNoService              = Get.find<SatShellNoService>();
+  // Separate shared master for Shell Type + Shell No (parent-child dropdowns).
+  // Not mixed with the dashboard controller's shared-master batch calls.
+  final saShellTypeShellNoService      = Get.find<SaShellTypeShellNoService>();
   // Reads the 23 forms pre-saved by dashboard on startup
   final _qciFormParamService       = Get.find<SaQciAllFormsService>();
   final _qciFormPayloadService     = Get.find<SaQciFormPayloadService>();
@@ -339,15 +345,13 @@ class AssemblyQciController extends GetxController {
   // ── DB setters (load dropdowns from Hive) ───────────────────────────────────
 
   Future<void> setQciShellTypesFromDb() async {
-    const selectedTrainType = 'lhb';
-    final frameTypes =
-        allFrameTypesService.getTypesByTrainType(selectedTrainType);
+    final shellTypes = saShellTypeShellNoService.getShellTypes();
 
     shellTypeList
       ..clear()
       ..add(SelectOptions(key: '0', value: 'Select', code: ''));
 
-    for (final item in frameTypes) {
+    for (final item in shellTypes) {
       shellTypeList.add(
           SelectOptions(key: item.id, value: item.title, code: item.code));
     }
@@ -424,7 +428,10 @@ class AssemblyQciController extends GetxController {
   }
 
   Future<void> setQciShellNoFromDb() async {
-    final shellNos = satShellNoService.getAllShellNo();
+    final typeId = selectedShellType?.key ?? '';
+    final List<SaShellNoItem> shellNos = (typeId.isEmpty || typeId == '0')
+        ? const []
+        : saShellTypeShellNoService.getShellNosByShellTypeId(typeId);
 
     shellNoList
       ..clear()
@@ -467,6 +474,51 @@ class AssemblyQciController extends GetxController {
         }
       },
       onError: (_) async => await onComplete(false),
+    );
+  }
+
+  /// Fetches shell types and their shell numbers from /shellno-by-shelltype
+  /// and saves the result to Hive via [saShellTypeShellNoService].
+  ///
+  /// Call this independently — do NOT include it in the dashboard
+  /// controller's shared-master batch.
+  Future<void> fetchShellNoByShellType({
+    required FutureOr<void> Function(bool completed) onComplete,
+  }) async {
+    await GetApiProvider().onGetProvider(
+      url: ConfigApi.getShellNoByShellType,
+      onSuccess: (result) async {
+        if (!result.status) {
+          await onComplete(false);
+          return;
+        }
+        try {
+          final response =
+              ShellNoByShellTypeResponse.fromJson(result.toJson());
+          final items = response.data;
+          if (items.isEmpty) {
+            await onComplete(false);
+            return;
+          }
+          await saShellTypeShellNoService.saveAll(items);
+          if (kDebugMode) {
+            debugPrint('[SA QCI] fetchShellNoByShellType: '
+                'saved ${items.length} shell types');
+          }
+          await onComplete(true);
+        } catch (e) {
+          if (kDebugMode) {
+            debugPrint('[SA QCI] fetchShellNoByShellType parse error: $e');
+          }
+          await onComplete(false);
+        }
+      },
+      onError: (e) async {
+        if (kDebugMode) {
+          debugPrint('[SA QCI] fetchShellNoByShellType API error: $e');
+        }
+        await onComplete(false);
+      },
     );
   }
 
@@ -606,6 +658,9 @@ class AssemblyQciController extends GetxController {
 
   void updateQciShellType(SelectOptions value) {
     selectedShellType = value.key == '0' ? null : value;
+    selectedShellNo   = null; // reset child when parent changes
+    // Reload Shell No list filtered by the newly selected Shell Type.
+    setQciShellNoFromDb();
     if (selectedShellType != null) {
       _loadQciFormForFrameType(selectedShellType!.key);
     } else {
