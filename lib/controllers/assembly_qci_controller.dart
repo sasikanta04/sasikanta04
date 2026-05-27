@@ -353,7 +353,7 @@ class AssemblyQciController extends GetxController {
 
     for (final t in shellTypes) {
       shellTypeList.add(
-          SelectOptions(key: t.id, value: t.name, code: t.id));
+          SelectOptions(key: t.frameTypeId, value: t.frameTypeName, code: t.frameTypeId));
     }
 
     final previousKey = selectedShellType?.key;

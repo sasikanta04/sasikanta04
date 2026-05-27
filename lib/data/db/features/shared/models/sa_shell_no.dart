@@ -2,31 +2,27 @@ import 'package:hive/hive.dart';
 
 part 'sa_shell_no.g.dart';
 
-// Single Hive model for the /shellno-by-shelltype response.
-// Each record is one shell_nos entry; frame_type_name is denormalised into the
-// row so the Shell Type dropdown can be derived from the same box without a
-// second adapter.
-//
-// typeId: 10  — confirm with senior if other shared adapters use this range.
-@HiveType(typeId: 10)
+// typeId 5 — confirm with senior that this ID is not already taken.
+// (AllFrameTypes uses typeId 4.)
+@HiveType(typeId: 5)
 class SaShellNo extends HiveObject {
   @HiveField(0)
-  String id; // shell_nos[].id
+  String id;
 
   @HiveField(1)
-  String formNo; // shell_nos[].form_no  — displayed in Shell No dropdown
+  String formNo; // form_no — displayed in Shell No dropdown
 
   @HiveField(2)
-  String? stage; // shell_nos[].stage
+  String? stage;
 
   @HiveField(3)
-  String frameTypeId; // shell_nos[].frame_type_id  — parent key
+  String frameTypeId; // frame_type_id — parent key
 
   @HiveField(4)
-  String frameTypeName; // parent frame_type_name — denormalised for Shell Type dropdown
+  String frameTypeName; // frame_type_name — denormalised for Shell Type dropdown
 
   @HiveField(5)
-  int? status;
+  int status;
 
   SaShellNo({
     required this.id,
@@ -34,6 +30,46 @@ class SaShellNo extends HiveObject {
     this.stage,
     required this.frameTypeId,
     required this.frameTypeName,
-    this.status,
+    required this.status,
   });
+
+  factory SaShellNo.fromJson(Map<String, dynamic> json) {
+    return SaShellNo(
+      id:            (json['id']              ?? '').toString(),
+      formNo:        (json['form_no']         ?? '').toString(),
+      stage:         json['stage'] as String?,
+      frameTypeId:   (json['frame_type_id']   ?? '').toString(),
+      frameTypeName: (json['frame_type_name'] ?? '').toString(),
+      status:        (json['status'] as num?)?.toInt() ?? 1,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id':              id,
+      'form_no':         formNo,
+      'stage':           stage,
+      'frame_type_id':   frameTypeId,
+      'frame_type_name': frameTypeName,
+      'status':          status,
+    };
+  }
+
+  SaShellNo copyWith({
+    String? id,
+    String? formNo,
+    String? stage,
+    String? frameTypeId,
+    String? frameTypeName,
+    int? status,
+  }) {
+    return SaShellNo(
+      id:            id            ?? this.id,
+      formNo:        formNo        ?? this.formNo,
+      stage:         stage         ?? this.stage,
+      frameTypeId:   frameTypeId   ?? this.frameTypeId,
+      frameTypeName: frameTypeName ?? this.frameTypeName,
+      status:        status        ?? this.status,
+    );
+  }
 }

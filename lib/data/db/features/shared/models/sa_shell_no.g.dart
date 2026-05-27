@@ -8,7 +8,7 @@ part of 'sa_shell_no.dart';
 
 class SaShellNoAdapter extends TypeAdapter<SaShellNo> {
   @override
-  final int typeId = 10;
+  final int typeId = 5;
 
   @override
   SaShellNo read(BinaryReader reader) {
@@ -22,7 +22,7 @@ class SaShellNoAdapter extends TypeAdapter<SaShellNo> {
       stage:         fields[2] as String?,
       frameTypeId:   fields[3] as String,
       frameTypeName: fields[4] as String,
-      status:        fields[5] as int?,
+      status:        fields[5] as int,
     );
   }
 
