@@ -1,30 +1,35 @@
-// Shell number model — shellTypeId is the parent reference for the
-// parent-child relationship between Shell Type and Shell No dropdowns.
+// Hive-backed model for a Shell No (child in the parent-child dropdown).
+// Maps to the shell_nos entries from /shellno-by-shelltype.
+// shellTypeId (= frame_type_id) is the parent reference.
 
 class SaShellNoItem {
   final String  id;
-  final String  shellNo;
-  final String  shellTypeId;
-  final String? date;
+  final String  formNo;      // displayed as Shell No in the dropdown
+  final String? stage;
+  final String  shellTypeId; // parent reference (frame_type_id)
+  final int?    status;
 
   const SaShellNoItem({
     required this.id,
-    required this.shellNo,
+    required this.formNo,
+    this.stage,
     required this.shellTypeId,
-    this.date,
+    this.status,
   });
 
   factory SaShellNoItem.fromJson(Map<String, dynamic> j) => SaShellNoItem(
         id:          (j['id']            ?? '').toString(),
-        shellNo:     (j['shell_no']      ?? '').toString(),
+        formNo:      (j['form_no']       ?? '').toString(),
+        stage:       j['stage'] as String?,
         shellTypeId: (j['shell_type_id'] ?? '').toString(),
-        date:        j['date'] as String?,
+        status:      j['status'] as int?,
       );
 
   Map<String, dynamic> toJson() => {
         'id':            id,
-        'shell_no':      shellNo,
+        'form_no':       formNo,
+        'stage':         stage,
         'shell_type_id': shellTypeId,
-        'date':          date,
+        'status':        status,
       };
 }

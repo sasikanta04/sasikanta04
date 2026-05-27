@@ -1,12 +1,27 @@
 // API response model for GET /shellno-by-shelltype
-// Returns shell types (parent) each with their shell numbers (children).
+//
+// Response shape:
+// {
+//   "success": true, "status": true, "message": "...",
+//   "data": [
+//     { "frame_type_id": "...", "frame_type_name": "...",
+//       "shell_nos": [
+//         { "id": "...", "form_no": "...", "stage": "...",
+//           "frame_type_id": "...", "status": 1,
+//           "created_at": "...", "updated_at": "..." }
+//       ]
+//     }
+//   ]
+// }
 
 class ShellNoByShellTypeResponse {
+  final bool?   success;
   final bool?   status;
   final String? message;
-  final List<ShellTypeData> data;
+  final List<ShellTypeWithNosData> data;
 
   const ShellNoByShellTypeResponse({
+    this.success,
     this.status,
     this.message,
     this.data = const [],
@@ -14,64 +29,74 @@ class ShellNoByShellTypeResponse {
 
   factory ShellNoByShellTypeResponse.fromJson(Map<String, dynamic> j) =>
       ShellNoByShellTypeResponse(
+        success: j['success'] as bool?,
         status:  j['status']  as bool?,
         message: j['message'] as String?,
         data: (j['data'] as List? ?? [])
-            .map((e) => ShellTypeData.fromJson(e as Map<String, dynamic>))
+            .map((e) => ShellTypeWithNosData.fromJson(e as Map<String, dynamic>))
             .toList(),
       );
 }
 
-class ShellTypeData {
-  final String id;
-  final String title;
-  final String code;
+// ── Parent — one shell type with its shell numbers ────────────────────────────
+
+class ShellTypeWithNosData {
+  final String            frameTypeId;
+  final String            frameTypeName;
   final List<ShellNoData> shellNos;
 
-  const ShellTypeData({
-    required this.id,
-    required this.title,
-    required this.code,
+  const ShellTypeWithNosData({
+    required this.frameTypeId,
+    required this.frameTypeName,
     this.shellNos = const [],
   });
 
-  factory ShellTypeData.fromJson(Map<String, dynamic> j) => ShellTypeData(
-        id:       (j['id']    ?? '').toString(),
-        title:    (j['title'] ?? '').toString(),
-        code:     (j['code']  ?? '').toString(),
-        shellNos: (j['shell_no'] as List? ?? [])
+  factory ShellTypeWithNosData.fromJson(Map<String, dynamic> j) =>
+      ShellTypeWithNosData(
+        frameTypeId:   (j['frame_type_id']   ?? '').toString(),
+        frameTypeName: (j['frame_type_name'] ?? '').toString(),
+        shellNos: (j['shell_nos'] as List? ?? [])
             .map((e) => ShellNoData.fromJson(e as Map<String, dynamic>))
             .toList(),
       );
 
   Map<String, dynamic> toJson() => {
-        'id':       id,
-        'title':    title,
-        'code':     code,
-        'shell_no': shellNos.map((e) => e.toJson()).toList(),
+        'frame_type_id':   frameTypeId,
+        'frame_type_name': frameTypeName,
+        'shell_nos':       shellNos.map((e) => e.toJson()).toList(),
       };
 }
 
+// ── Child — one shell number entry ────────────────────────────────────────────
+
 class ShellNoData {
   final String  id;
-  final String  shellNo;
-  final String? date;
+  final String  formNo;
+  final String? stage;
+  final String  frameTypeId;
+  final int?    status;
 
   const ShellNoData({
     required this.id,
-    required this.shellNo,
-    this.date,
+    required this.formNo,
+    this.stage,
+    required this.frameTypeId,
+    this.status,
   });
 
   factory ShellNoData.fromJson(Map<String, dynamic> j) => ShellNoData(
-        id:      (j['id']       ?? '').toString(),
-        shellNo: (j['shell_no'] ?? '').toString(),
-        date:    j['date'] as String?,
+        id:          (j['id']              ?? '').toString(),
+        formNo:      (j['form_no']         ?? '').toString(),
+        stage:       j['stage'] as String?,
+        frameTypeId: (j['frame_type_id']   ?? '').toString(),
+        status:      j['status'] as int?,
       );
 
   Map<String, dynamic> toJson() => {
-        'id':       id,
-        'shell_no': shellNo,
-        'date':     date,
+        'id':            id,
+        'form_no':       formNo,
+        'stage':         stage,
+        'frame_type_id': frameTypeId,
+        'status':        status,
       };
 }

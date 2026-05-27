@@ -29,24 +29,25 @@ class SaShellTypeShellNoService {
     if (raw == null || raw.isEmpty) return;
     try {
       final list = (jsonDecode(raw) as List? ?? [])
-          .map((e) => ShellTypeData.fromJson(e as Map<String, dynamic>))
+          .map((e) => ShellTypeWithNosData.fromJson(e as Map<String, dynamic>))
           .toList();
       _rebuild(list);
     } catch (_) {}
   }
 
-  void _rebuild(List<ShellTypeData> items) {
+  void _rebuild(List<ShellTypeWithNosData> items) {
     final types = <SaShellType>[];
     final nos   = <SaShellNoItem>[];
 
     for (final item in items) {
-      types.add(SaShellType(id: item.id, title: item.title, code: item.code));
+      types.add(SaShellType(id: item.frameTypeId, name: item.frameTypeName));
       for (final sn in item.shellNos) {
         nos.add(SaShellNoItem(
           id:          sn.id,
-          shellNo:     sn.shellNo,
-          shellTypeId: item.id,
-          date:        sn.date,
+          formNo:      sn.formNo,
+          stage:       sn.stage,
+          shellTypeId: item.frameTypeId,
+          status:      sn.status,
         ));
       }
     }
@@ -55,7 +56,7 @@ class SaShellTypeShellNoService {
     _shellNos   = List.unmodifiable(nos);
   }
 
-  Future<void> saveAll(List<ShellTypeData> items) async {
+  Future<void> saveAll(List<ShellTypeWithNosData> items) async {
     final box  = Hive.box<String>(_boxName);
     final json = jsonEncode(items.map((e) => e.toJson()).toList());
     await box.put(_dataKey, json);
@@ -71,7 +72,7 @@ class SaShellTypeShellNoService {
 
   List<SaShellType> getShellTypes() => _shellTypes;
 
-  /// Returns shell numbers belonging to the given [shellTypeId].
+  /// Returns shell numbers belonging to the given [shellTypeId] (frame_type_id).
   List<SaShellNoItem> getShellNosByShellTypeId(String shellTypeId) =>
       _shellNos.where((e) => e.shellTypeId == shellTypeId).toList();
 }

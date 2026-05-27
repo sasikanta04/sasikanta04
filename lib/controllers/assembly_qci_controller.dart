@@ -353,7 +353,7 @@ class AssemblyQciController extends GetxController {
 
     for (final item in shellTypes) {
       shellTypeList.add(
-          SelectOptions(key: item.id, value: item.title, code: item.code));
+          SelectOptions(key: item.id, value: item.name, code: item.id));
     }
 
     final previousKey = selectedShellType?.key;
@@ -439,7 +439,7 @@ class AssemblyQciController extends GetxController {
 
     for (final item in shellNos) {
       shellNoList.add(
-          SelectOptions(key: item.id, value: item.shellNo, code: item.shellNo));
+          SelectOptions(key: item.id, value: item.formNo, code: item.formNo));
     }
 
     final previousKey = selectedShellNo?.key;
