@@ -12,7 +12,7 @@ import '../../data/api/shell/sa_final_saved_list_response.dart';
 import '../../data/api/shell/shell_no_response.dart';
 import '../../data/api/shell/shell_qci_form.dart'; // API response model
 import '../../data/api/shell/shell_no_by_shell_type_response.dart';
-import '../../data/db/features/shared/models/sa_shell_no_item.dart';
+import '../../data/db/features/shared/models/sa_shell_no.dart';
 import '../../data/db/features/shared/services/all_frame_types_service.dart';
 import '../../data/db/features/shared/services/all_makes_service.dart';
 import '../../data/db/features/shared/services/all_shifts_service.dart';
@@ -351,9 +351,9 @@ class AssemblyQciController extends GetxController {
       ..clear()
       ..add(SelectOptions(key: '0', value: 'Select', code: ''));
 
-    for (final item in shellTypes) {
+    for (final t in shellTypes) {
       shellTypeList.add(
-          SelectOptions(key: item.id, value: item.name, code: item.id));
+          SelectOptions(key: t.id, value: t.name, code: t.id));
     }
 
     final previousKey = selectedShellType?.key;
@@ -429,7 +429,7 @@ class AssemblyQciController extends GetxController {
 
   Future<void> setQciShellNoFromDb() async {
     final typeId = selectedShellType?.key ?? '';
-    final List<SaShellNoItem> shellNos = (typeId.isEmpty || typeId == '0')
+    final List<SaShellNo> shellNos = (typeId.isEmpty || typeId == '0')
         ? const []
         : saShellTypeShellNoService.getShellNosByShellTypeId(typeId);
 

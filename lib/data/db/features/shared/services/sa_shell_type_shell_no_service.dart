@@ -1,62 +1,59 @@
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../../api/shell/shell_no_by_shell_type_response.dart';
-import '../models/sa_shell_no_item.dart';
-import '../models/sa_shell_type.dart';
+import '../models/sa_shell_no.dart';
 
 /// Shared master for Shell Type and Shell No dropdown data.
 ///
-/// Fetched from /shellno-by-shelltype and persisted in typed Hive boxes.
-/// Kept separate from the dashboard controller's shared master calls.
-/// Provides filtered getters for the parent-child dropdown relationship.
+/// Uses a single SaShellNo Hive box.  Each record is one shell_nos entry;
+/// frame_type_name is denormalised into every row so the Shell Type list
+/// can be derived from the same box without a second adapter.
 ///
-/// Register adapters before calling init():
-///   Hive.registerAdapter(SaShellTypeAdapter());    // typeId 10
-///   Hive.registerAdapter(SaShellNoItemAdapter());  // typeId 11
+/// Register the adapter before calling init():
+///   Hive.registerAdapter(SaShellNoAdapter());  // typeId 10
 class SaShellTypeShellNoService {
-  static const _shellTypesBox = 'sa_shell_types_box';
-  static const _shellNosBox   = 'sa_shell_nos_box';
+  static const _boxName = 'sa_shell_no_box';
+
+  Box<SaShellNo> get _box => Hive.box<SaShellNo>(_boxName);
 
   Future<void> init() async {
-    await Hive.openBox<SaShellType>(_shellTypesBox);
-    await Hive.openBox<SaShellNoItem>(_shellNosBox);
+    await Hive.openBox<SaShellNo>(_boxName);
   }
 
-  Box<SaShellType>   get _typesBox => Hive.box<SaShellType>(_shellTypesBox);
-  Box<SaShellNoItem> get _nosBox   => Hive.box<SaShellNoItem>(_shellNosBox);
-
   Future<void> saveAll(List<ShellTypeWithNosData> items) async {
-    await _typesBox.clear();
-    await _nosBox.clear();
-
-    for (final item in items) {
-      await _typesBox.put(
-        item.frameTypeId,
-        SaShellType(id: item.frameTypeId, name: item.frameTypeName),
-      );
-      for (final sn in item.shellNos) {
-        await _nosBox.put(
+    await _box.clear();
+    for (final type in items) {
+      for (final sn in type.shellNos) {
+        await _box.put(
           sn.id,
-          SaShellNoItem(
-            id:          sn.id,
-            formNo:      sn.formNo,
-            stage:       sn.stage,
-            shellTypeId: item.frameTypeId,
-            status:      sn.status,
+          SaShellNo(
+            id:            sn.id,
+            formNo:        sn.formNo,
+            stage:         sn.stage,
+            frameTypeId:   type.frameTypeId,
+            frameTypeName: type.frameTypeName,
+            status:        sn.status,
           ),
         );
       }
     }
   }
 
-  Future<void> clearAll() async {
-    await _typesBox.clear();
-    await _nosBox.clear();
+  Future<void> clearAll() => _box.clear();
+
+  /// Distinct shell types derived from stored records, preserving API order.
+  List<({String id, String name})> getShellTypes() {
+    final seen  = <String>{};
+    final types = <({String id, String name})>[];
+    for (final sn in _box.values) {
+      if (seen.add(sn.frameTypeId)) {
+        types.add((id: sn.frameTypeId, name: sn.frameTypeName));
+      }
+    }
+    return types;
   }
 
-  List<SaShellType> getShellTypes() => _typesBox.values.toList();
-
-  /// Returns shell numbers belonging to the given [shellTypeId] (frame_type_id).
-  List<SaShellNoItem> getShellNosByShellTypeId(String shellTypeId) =>
-      _nosBox.values.where((e) => e.shellTypeId == shellTypeId).toList();
+  /// Shell numbers belonging to the given [shellTypeId] (frame_type_id).
+  List<SaShellNo> getShellNosByShellTypeId(String shellTypeId) =>
+      _box.values.where((e) => e.frameTypeId == shellTypeId).toList();
 }
