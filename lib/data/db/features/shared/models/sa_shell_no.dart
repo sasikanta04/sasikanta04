@@ -2,9 +2,7 @@ import 'package:hive/hive.dart';
 
 part 'sa_shell_no.g.dart';
 
-// typeId 5 — confirm with senior that this ID is not already taken.
-// (AllFrameTypes uses typeId 4.)
-@HiveType(typeId: 5)
+@HiveType(typeId: 10)
 class SaShellNo extends HiveObject {
   @HiveField(0)
   String id;
