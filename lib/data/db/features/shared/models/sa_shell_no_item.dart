@@ -1,15 +1,27 @@
-// Hive-backed model for a Shell No (child in the parent-child dropdown).
-// Maps to the shell_nos entries from /shellno-by-shelltype.
-// shellTypeId (= frame_type_id) is the parent reference.
+import 'package:hive/hive.dart';
 
-class SaShellNoItem {
-  final String  id;
-  final String  formNo;      // displayed as Shell No in the dropdown
+part 'sa_shell_no_item.g.dart';
+
+// typeId 11 — Shell No Item (child in Shell Type / Shell No parent-child dropdown).
+// shellTypeId == frame_type_id of the parent SaShellType.
+@HiveType(typeId: 11)
+class SaShellNoItem extends HiveObject {
+  @HiveField(0)
+  final String id;
+
+  @HiveField(1)
+  final String formNo; // form_no — displayed in the Shell No dropdown
+
+  @HiveField(2)
   final String? stage;
-  final String  shellTypeId; // parent reference (frame_type_id)
-  final int?    status;
 
-  const SaShellNoItem({
+  @HiveField(3)
+  final String shellTypeId; // frame_type_id — parent reference
+
+  @HiveField(4)
+  final int? status;
+
+  SaShellNoItem({
     required this.id,
     required this.formNo,
     this.stage,
